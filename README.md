@@ -5,9 +5,11 @@
 ![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 ![Mongoose](https://img.shields.io/badge/Mongoose-880000?style=for-the-badge&logo=mongoose&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Nodemailer](https://img.shields.io/badge/Nodemailer-22B573?style=for-the-badge&logo=gmail&logoColor=white)
 ![dotenv](https://img.shields.io/badge/dotenv-8DD6F9?style=for-the-badge&logo=dotenv&logoColor=black)
 
-API REST para gestionar proyectos y tareas.
+API REST para gestionar proyectos y tareas con autenticacion completa por JWT.
 
 ## Tabla de contenido
 
@@ -19,6 +21,11 @@ API REST para gestionar proyectos y tareas.
 - [Scripts](#scripts)
 - [Estructura](#estructura)
 - [API](#api)
+  - [Autenticacion](#autenticacion)
+  - [Proyectos](#proyectos)
+  - [Tareas](#tareas)
+- [Autenticacion y seguridad](#autenticacion-y-seguridad)
+- [Emails transaccionales](#emails-transaccionales)
 - [Validaciones y errores](#validaciones-y-errores)
 - [Estados de tarea](#estados-de-tarea)
 - [Despliegue](#despliegue)
@@ -27,14 +34,18 @@ API REST para gestionar proyectos y tareas.
 
 Este backend expone endpoints para:
 
-- CRUD de proyectos.
-- CRUD de tareas por proyecto.
+- Registro, confirmacion de cuenta, login y recuperacion de password con JWT.
+- Reenvio de codigos de confirmacion y validacion de tokens de un solo uso.
+- CRUD de proyectos (protegido por autenticacion).
+- CRUD de tareas por proyecto (protegido por autenticacion).
 - Cambio de estado de tareas.
 - Validacion de payloads con express-validator.
+- Envio de emails transaccionales con Nodemailer (confirmacion y recuperacion de password).
 - Control de CORS por dominio de frontend.
 
-Base path de la API:
+Base paths de la API:
 
+- `/api/auth`
 - `/api/projects`
 
 ## Stack tecnico
@@ -43,6 +54,9 @@ Base path de la API:
 - Express 5
 - MongoDB + Mongoose
 - express-validator
+- jsonwebtoken (JWT)
+- bcrypt
+- Nodemailer
 - CORS + dotenv
 - Morgan para logs HTTP
 
@@ -80,13 +94,23 @@ Crear `.env` en backend con:
 PORT=4000
 DATABASE_URL=mongodb+srv://usuario:password@cluster.mongodb.net/core_task
 FRONTEND_URL=http://localhost:5173
+JWT_SECRET=tu_secreto_jwt_seguro
+SMTP_HOST=smtp.tuproveedor.com
+SMTP_PORT=587
+SMTP_USER=tu_usuario_smtp
+SMTP_PASS=tu_password_smtp
 ```
 
 Descripcion:
 
 - `PORT`: puerto HTTP del backend (si no se define usa `4000`).
 - `DATABASE_URL`: cadena de conexion de MongoDB.
-- `FRONTEND_URL`: origen permitido por CORS.
+- `FRONTEND_URL`: origen permitido por CORS y URL base para links en emails.
+- `JWT_SECRET`: clave secreta para firmar y verificar JWT.
+- `SMTP_HOST`: host del servidor SMTP para envio de emails.
+- `SMTP_PORT`: puerto SMTP (generalmente `587` para TLS).
+- `SMTP_USER`: usuario / cuenta SMTP.
+- `SMTP_PASS`: password de la cuenta SMTP.
 
 ## Scripts
 
@@ -99,27 +123,104 @@ src/
   config/
     cors.ts
     db.ts
+    nodemailer.ts        <- transporte de email (nuevo)
   controllers/
+    AuthController.ts   <- controlador de auth (nuevo)
     ProjectController.ts
     TaskController.ts
+  emails/
+    AuthEmail.ts        <- templates de email transaccional (nuevo)
   middleware/
+    auth.ts             <- middleware JWT authenticate (nuevo)
     project.ts
     task.ts
     validation.ts
   models/
     Proyect.ts
     Task.ts
+    Token.ts            <- modelo de tokens de un solo uso (nuevo)
+    User.ts             <- modelo de usuario (nuevo)
   routes/
+    authRoutes.ts       <- rutas de autenticacion (nuevo)
     projectRoutes.ts
   utils/
+    auth.ts             <- hashPassword / checkPassword con bcrypt (nuevo)
     handleError.ts
+    jwt.ts              <- generateJWT (nuevo)
+    token.ts            <- generateToken de 6 digitos (nuevo)
   index.ts
   server.ts
 ```
 
 ## API
 
+### Autenticacion
+
+Todas las rutas de auth tienen el prefijo `/api/auth`.
+
+| Metodo | Endpoint | Auth | Descripcion |
+|---|---|---|---|
+| POST | `/api/auth/create-account` | No | Registrar nuevo usuario |
+| POST | `/api/auth/confirm-account` | No | Confirmar cuenta con codigo de email |
+| POST | `/api/auth/login` | No | Iniciar sesion, devuelve JWT |
+| POST | `/api/auth/request-code` | No | Reenviar codigo de confirmacion |
+| POST | `/api/auth/forgot-password` | No | Solicitar codigo de recuperacion de password |
+| POST | `/api/auth/validate-token` | No | Validar token de recuperacion |
+| POST | `/api/auth/update-password/:token` | No | Actualizar password con token valido |
+| GET | `/api/auth/user` | **Si** | Obtener datos del usuario autenticado |
+
+Payload para registrar usuario:
+
+```json
+{
+  "name": "Juan Perez",
+  "email": "juan@example.com",
+  "password": "minimo8chars",
+  "password_confirmation": "minimo8chars"
+}
+```
+
+Payload para confirmar cuenta / validar token:
+
+```json
+{
+  "token": "123456"
+}
+```
+
+Payload para login:
+
+```json
+{
+  "email": "juan@example.com",
+  "password": "minimo8chars"
+}
+```
+
+Payload para actualizar password:
+
+```json
+{
+  "password": "nuevaPass123",
+  "password_confirmation": "nuevaPass123"
+}
+```
+
+Respuesta de login exitoso (string JWT):
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+El token JWT debe enviarse en los endpoints protegidos como header:
+
+```
+Authorization: Bearer <token>
+```
+
 ### Proyectos
+
+Todas las rutas de proyectos requieren el header `Authorization: Bearer <token>`.
 
 | Metodo | Endpoint | Descripcion |
 |---|---|---|
@@ -141,6 +242,8 @@ Payload para crear/actualizar proyecto:
 
 ### Tareas
 
+Todas las rutas de tareas requieren el header `Authorization: Bearer <token>`.
+
 | Metodo | Endpoint | Descripcion |
 |---|---|---|
 | POST | `/api/projects/:projectId/tasks` | Crear tarea para un proyecto |
@@ -154,8 +257,8 @@ Payload para crear/actualizar tarea:
 
 ```json
 {
-  "name": "Configurar autenticacion",
-  "description": "Agregar login con JWT"
+  "name": "Disenar pantalla de login",
+  "description": "Formulario con validaciones de email y password"
 }
 ```
 
@@ -167,12 +270,29 @@ Payload para actualizar estado:
 }
 ```
 
+## Autenticacion y seguridad
+
+- Las passwords se almacenan hasheadas con `bcrypt`.
+- Los JWT se firman con `jsonwebtoken` usando `JWT_SECRET` y expiran en `90d`.
+- El middleware `authenticate` valida el token en cada peticion protegida e inyecta `req.user`.
+- Los codigos de confirmacion/recuperacion son numeros de 6 digitos de un solo uso almacenados en el modelo `Token` con TTL de 10 minutos.
+- CORS restringido al dominio definido en `FRONTEND_URL`.
+
+## Emails transaccionales
+
+El sistema envia emails en dos situaciones mediante Nodemailer:
+
+1. **Confirmacion de cuenta**: al registrarse un usuario se envia un codigo de 6 digitos para activar la cuenta. Si intenta hacer login sin confirmar, se reenvía automaticamente.
+2. **Recuperacion de password**: al solicitar recuperacion se envia un codigo que debe validarse antes de permitir el cambio de password.
+
 ## Validaciones y errores
 
 - Validaciones con `express-validator`.
 - IDs invalidos retornan `400`.
 - Recursos no encontrados retornan `404`.
-- Acceso de tarea fuera de su proyecto retorna `401`.
+- Acceso no autorizado retorna `401`.
+- Acceso prohibido retorna `403`.
+- Conflicto de datos (email duplicado) retorna `409`.
 - Errores inesperados retornan `500` con:
 
 ```json
@@ -214,10 +334,12 @@ Estado por defecto al crear una tarea:
 
 Si vas a desplegar backend y frontend en servicios distintos:
 
-1. Define `FRONTEND_URL` con la URL publica del frontend.
+1. Define `FRONTEND_URL` con la URL publica del frontend (necesario para CORS y links de email).
 2. Define `DATABASE_URL` de produccion.
-3. Define `PORT` segun el proveedor (o deja que el proveedor lo inyecte).
-4. Verifica que el frontend apunte a este backend por medio de `VITE_API_URL`.
+3. Define `JWT_SECRET` con un valor largo y aleatorio seguro.
+4. Configura las variables `SMTP_*` con las credenciales de tu proveedor de email.
+5. Define `PORT` segun el proveedor (o deja que el proveedor lo inyecte).
+6. Verifica que el frontend apunte a este backend por medio de `VITE_API_URL`.
 
 ## ✉️ Contacto
 

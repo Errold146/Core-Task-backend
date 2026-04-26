@@ -8,6 +8,7 @@ export class ProjectController {
     static createProject = async (req: Request, res: Response) => {
         try {
             const project = new Project(req.body)
+            project.manager = req.user._id
             await project.save()
             res.send('Proyecto Creado Correctamente.')
 
@@ -18,7 +19,13 @@ export class ProjectController {
 
     static getAllProjects = async (req: Request, res: Response) => {
         try {
-            const projects = await Project.find({})
+            const projects = await Project.find({
+                $or: [
+                    {
+                        manager: { $in: req.user._id }
+                    }
+                ]
+            })
             res.json(projects)
             
         } catch (error) {
@@ -28,8 +35,18 @@ export class ProjectController {
     
     static getProjectById = async (req: Request, res: Response) => {
         try {
-            await req.project.populate('tasks')
-            res.json(req.project)
+            const { projectId } = req.params
+            const project = await Project.findById(projectId).populate('tasks')
+            if ( !project ) {
+                const err = new Error('Proyecto Inválido')
+                return res.status(404).json({error: err.message})
+            }
+            if ( project.manager.toString() !== req.user._id.toString() ) {
+                const err = new Error('Acceso Denegado.')
+                return res.status(403).json({error: err.message})
+            }
+            
+            res.json(project)
 
         } catch (error) {
             handleError(res, 'Error al cargar el proyecto', error)
@@ -38,10 +55,22 @@ export class ProjectController {
 
     static updateProject = async (req: Request, res: Response) => {
         try {
-            req.project.clientName = req.body.clientName
-            req.project.projectName = req.body.projectName
-            req.project.description = req.body.description
-            await req.project.save()
+            const { projectId } = req.params
+            const project = await Project.findById(projectId)
+            if ( !project ) {
+                const err = new Error('Proyecto Inválido')
+                return res.status(404).json({error: err.message})
+            }
+            if ( project.manager.toString() !== req.user._id.toString() ) {
+                const err = new Error('Acceso Denegado.')
+                return res.status(403).json({error: err.message})
+            }
+
+            project.clientName = req.body.clientName
+            project.projectName = req.body.projectName
+            project.description = req.body.description
+
+            await project.save()
             res.send('Proyecto Actualizado Correctamente.')
             
         } catch (error) {
@@ -51,6 +80,10 @@ export class ProjectController {
 
     static deleteProject = async (req: Request, res: Response) => {
         try {
+            if ( req.project.manager.toString() !== req.user._id.toString() ) {
+                const err = new Error('Acceso Denegado.')
+                return res.status(403).json({error: err.message})
+            }
             await req.project.deleteOne()
             res.send('Proyecto Eliminado Correctamente.')
 
