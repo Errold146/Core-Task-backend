@@ -20,7 +20,7 @@ export class TeamEmail {
         const projectsUrl = `${process.env.FRONTEND_URL}/` || "#"
 
         await transporter.sendMail({
-            from: "CoreTask <noreply@acesorarte.com>",
+            from: "CoreTask <noreply@coretask.acesorarte.com>",
             to: memberEmail,
             subject: `CoreTask | Te han añadido al proyecto "${projectName}"`,
             text: `Hola ${memberName},\n\n${managerName} te ha añadido como miembro del proyecto "${projectName}" en CoreTask.\n\nYa puedes acceder al proyecto desde tu panel: ${projectsUrl}\n\nSi no esperabas esta invitación, puedes ignorar este mensaje.`,
@@ -83,7 +83,7 @@ export class TeamEmail {
         const projectsUrl = `${process.env.FRONTEND_URL}/` || "#"
 
         await transporter.sendMail({
-            from: "CoreTask <noreply@acesorarte.com>",
+            from: "CoreTask <noreply@coretask.acesorarte.com>",
             to: managerEmail,
             subject: `CoreTask | ${memberName} ha abandonado el proyecto "${projectName}"`,
             text: `Hola ${managerName},\n\nTe informamos que ${memberName} ha abandonado el proyecto "${projectName}".\n\nPuedes gestionar el equipo del proyecto desde tu panel: ${projectsUrl}\n\nEste mensaje es automático, no es necesario responder.`,
