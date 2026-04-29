@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import Task, { ITask } from "../models/Task";
+import { handleError } from "../utils/handleError";
 
 declare global {
     namespace Express {
@@ -22,14 +23,22 @@ export async function taskExist(req: Request, res: Response, next: NextFunction)
         next()
 
     } catch (error) {
-        res.status(500).json({error: 'Lo sentimos, ocurrio un error inesperado.'})
+        handleError(res, 'Lo sentimos ocurrio un error inesperado', error)
     }
 }
 
 export function taskBelongsProject(req: Request, res: Response, next: NextFunction) {
     if (req.task.project.toString() !== req.project._id.toString()) {
         const error = new Error('Acceso Denegado.')
-        return res.status(401).json({error: error.message})
+        return res.status(400).json({error: error.message})
+    }
+    next()
+}
+
+export function hasAuthorization(req: Request, res: Response, next: NextFunction) {
+    if (req.user._id.toString() !== req.project.manager.toString()) {
+        const error = new Error('Acceso Denegado.')
+        return res.status(400).json({error: error.message})
     }
     next()
 }

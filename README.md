@@ -9,7 +9,7 @@
 ![Nodemailer](https://img.shields.io/badge/Nodemailer-22B573?style=for-the-badge&logo=gmail&logoColor=white)
 ![dotenv](https://img.shields.io/badge/dotenv-8DD6F9?style=for-the-badge&logo=dotenv&logoColor=black)
 
-API REST para gestionar proyectos y tareas con autenticacion completa por JWT.
+API REST para gestionar proyectos, tareas, notas y equipos con autenticacion completa por JWT.
 
 ## Tabla de contenido
 
@@ -21,11 +21,14 @@ API REST para gestionar proyectos y tareas con autenticacion completa por JWT.
 - [Scripts](#scripts)
 - [Estructura](#estructura)
 - [API](#api)
-  - [Autenticacion](#autenticacion)
+  - [Autenticacion y perfil](#autenticacion-y-perfil)
   - [Proyectos](#proyectos)
   - [Tareas](#tareas)
+  - [Notas](#notas)
+  - [Equipo](#equipo)
 - [Autenticacion y seguridad](#autenticacion-y-seguridad)
 - [Emails transaccionales](#emails-transaccionales)
+- [Eliminacion en cascada](#eliminacion-en-cascada)
 - [Validaciones y errores](#validaciones-y-errores)
 - [Estados de tarea](#estados-de-tarea)
 - [Despliegue](#despliegue)
@@ -36,11 +39,14 @@ Este backend expone endpoints para:
 
 - Registro, confirmacion de cuenta, login y recuperacion de password con JWT.
 - Reenvio de codigos de confirmacion y validacion de tokens de un solo uso.
-- CRUD de proyectos (protegido por autenticacion).
-- CRUD de tareas por proyecto (protegido por autenticacion).
-- Cambio de estado de tareas.
+- Actualizacion de perfil y cambio de password con verificacion de credenciales.
+- CRUD de proyectos (protegido por autenticacion) con eliminacion en cascada.
+- CRUD de tareas por proyecto con cambio de estado y eliminacion en cascada.
+- CRUD de notas por tarea, con control de autorizacion (solo el autor puede eliminar).
+- Gestion de miembros del equipo por proyecto (agregar y eliminar colaboradores).
+- Busqueda de usuarios por email para invitar al equipo.
 - Validacion de payloads con express-validator.
-- Envio de emails transaccionales con Nodemailer (confirmacion y recuperacion de password).
+- Envio de emails transaccionales con Nodemailer (confirmacion, recuperacion e invitacion a equipo).
 - Control de CORS por dominio de frontend.
 
 Base paths de la API:
@@ -123,40 +129,44 @@ src/
   config/
     cors.ts
     db.ts
-    nodemailer.ts        <- transporte de email (nuevo)
+    nodemailer.ts        <- transporte de email
   controllers/
-    AuthController.ts   <- controlador de auth (nuevo)
+    AuthController.ts   <- auth + perfil + check-password
+    NoteController.ts   <- CRUD de notas por tarea
     ProjectController.ts
     TaskController.ts
+    TeamController.ts   <- gestion de miembros del equipo
   emails/
-    AuthEmail.ts        <- templates de email transaccional (nuevo)
+    AuthEmail.ts        <- emails de confirmacion y recuperacion
+    TeamEmail.ts        <- email de invitacion a proyecto
   middleware/
-    auth.ts             <- middleware JWT authenticate (nuevo)
+    auth.ts             <- middleware JWT authenticate
     project.ts
     task.ts
     validation.ts
   models/
+    Note.ts             <- modelo de notas (autor + tarea)
     Proyect.ts
     Task.ts
-    Token.ts            <- modelo de tokens de un solo uso (nuevo)
-    User.ts             <- modelo de usuario (nuevo)
+    Token.ts            <- tokens de un solo uso
+    User.ts
   routes/
-    authRoutes.ts       <- rutas de autenticacion (nuevo)
-    projectRoutes.ts
+    authRoutes.ts       <- auth + perfil
+    projectRoutes.ts    <- proyectos, tareas, notas, equipo
   utils/
-    auth.ts             <- hashPassword / checkPassword con bcrypt (nuevo)
+    auth.ts             <- hashPassword / checkPassword
     handleError.ts
-    jwt.ts              <- generateJWT (nuevo)
-    token.ts            <- generateToken de 6 digitos (nuevo)
+    jwt.ts              <- generateJWT
+    token.ts            <- generateToken de 6 digitos
   index.ts
   server.ts
 ```
 
 ## API
 
-### Autenticacion
+### Autenticacion y perfil
 
-Todas las rutas de auth tienen el prefijo `/api/auth`.
+Todas las rutas tienen el prefijo `/api/auth`.
 
 | Metodo | Endpoint | Auth | Descripcion |
 |---|---|---|---|
@@ -168,6 +178,9 @@ Todas las rutas de auth tienen el prefijo `/api/auth`.
 | POST | `/api/auth/validate-token` | No | Validar token de recuperacion |
 | POST | `/api/auth/update-password/:token` | No | Actualizar password con token valido |
 | GET | `/api/auth/user` | **Si** | Obtener datos del usuario autenticado |
+| PUT | `/api/auth/profile` | **Si** | Actualizar nombre y email del perfil |
+| POST | `/api/auth/update-password` | **Si** | Cambiar password (requiere password actual) |
+| POST | `/api/auth/check-password` | **Si** | Verificar password actual (para acciones sensibles) |
 
 Payload para registrar usuario:
 
@@ -250,7 +263,7 @@ Todas las rutas de tareas requieren el header `Authorization: Bearer <token>`.
 | GET | `/api/projects/:projectId/tasks` | Listar tareas de un proyecto |
 | GET | `/api/projects/:projectId/tasks/:taskId` | Obtener tarea por id |
 | PUT | `/api/projects/:projectId/tasks/:taskId` | Actualizar tarea |
-| DELETE | `/api/projects/:projectId/tasks/:taskId` | Eliminar tarea |
+| DELETE | `/api/projects/:projectId/tasks/:taskId` | Eliminar tarea (elimina sus notas en cascada) |
 | POST | `/api/projects/:projectId/tasks/:taskId/status` | Actualizar estado |
 
 Payload para crear/actualizar tarea:
@@ -270,20 +283,64 @@ Payload para actualizar estado:
 }
 ```
 
+### Notas
+
+Todas las rutas de notas requieren el header `Authorization: Bearer <token>`.
+
+| Metodo | Endpoint | Descripcion |
+|---|---|---|
+| GET | `/api/projects/:projectId/tasks/:taskId/notes` | Listar notas de una tarea |
+| POST | `/api/projects/:projectId/tasks/:taskId/notes` | Crear nota en una tarea |
+| DELETE | `/api/projects/:projectId/tasks/:taskId/notes/:noteId` | Eliminar nota (solo el autor) |
+
+Payload para crear nota:
+
+```json
+{
+  "content": "Revisar el diseno con el cliente antes de implementar."
+}
+```
+
+### Equipo
+
+Todas las rutas de equipo requieren el header `Authorization: Bearer <token>` y solo el manager del proyecto puede gestionarlas.
+
+| Metodo | Endpoint | Descripcion |
+|---|---|---|
+| POST | `/api/projects/:projectId/team/find` | Buscar usuario por email |
+| POST | `/api/projects/:projectId/team` | Agregar miembro al proyecto |
+| DELETE | `/api/projects/:projectId/team/:userId` | Eliminar miembro del proyecto |
+| GET | `/api/projects/:projectId/team` | Listar miembros del equipo |
+
+Payload para buscar y agregar miembro:
+
+```json
+{
+  "email": "colaborador@example.com"
+}
+```
+
 ## Autenticacion y seguridad
 
 - Las passwords se almacenan hasheadas con `bcrypt`.
 - Los JWT se firman con `jsonwebtoken` usando `JWT_SECRET` y expiran en `90d`.
 - El middleware `authenticate` valida el token en cada peticion protegida e inyecta `req.user`.
 - Los codigos de confirmacion/recuperacion son numeros de 6 digitos de un solo uso almacenados en el modelo `Token` con TTL de 10 minutos.
+- El endpoint `POST /api/auth/check-password` permite verificar la password actual antes de operaciones sensibles (por ejemplo eliminar un proyecto).
 - CORS restringido al dominio definido en `FRONTEND_URL`.
 
 ## Emails transaccionales
 
-El sistema envia emails en dos situaciones mediante Nodemailer:
+El sistema envia emails mediante Nodemailer en tres situaciones:
 
 1. **Confirmacion de cuenta**: al registrarse un usuario se envia un codigo de 6 digitos para activar la cuenta. Si intenta hacer login sin confirmar, se reenvía automaticamente.
 2. **Recuperacion de password**: al solicitar recuperacion se envia un codigo que debe validarse antes de permitir el cambio de password.
+3. **Invitacion al equipo**: cuando el manager agrega un colaborador al proyecto, se le notifica por email.
+
+## Eliminacion en cascada
+
+- Al eliminar un **proyecto** se eliminan automaticamente todas sus tareas y todas las notas de esas tareas.
+- Al eliminar una **tarea** se eliminan automaticamente todas sus notas.
 
 ## Validaciones y errores
 
@@ -334,12 +391,14 @@ Estado por defecto al crear una tarea:
 
 Si vas a desplegar backend y frontend en servicios distintos:
 
-1. Define `FRONTEND_URL` con la URL publica del frontend (necesario para CORS y links de email).
-2. Define `DATABASE_URL` de produccion.
-3. Define `JWT_SECRET` con un valor largo y aleatorio seguro.
-4. Configura las variables `SMTP_*` con las credenciales de tu proveedor de email.
-5. Define `PORT` segun el proveedor (o deja que el proveedor lo inyecte).
-6. Verifica que el frontend apunte a este backend por medio de `VITE_API_URL`.
+1. Elige un proveedor de hosting para Node.js (Railway, Render, Fly.io, etc.).
+2. Configura las variables de entorno en el panel del proveedor (no subas `.env` al repositorio).
+3. Define `FRONTEND_URL` con la URL publica del frontend (necesario para CORS y links de email).
+4. Define `DATABASE_URL` apuntando a tu cluster de MongoDB Atlas de produccion.
+5. Define `JWT_SECRET` con un valor largo y aleatorio seguro.
+6. Configura las variables `SMTP_*` con las credenciales de tu proveedor de email (SendGrid, Resend, etc.).
+7. El proveedor suele inyectar `PORT` automaticamente; si no, definelo en las variables de entorno.
+8. Despues del deploy, actualiza el frontend con `VITE_API_URL` apuntando a la URL publica de este backend.
 
 ## ✉️ Contacto
 

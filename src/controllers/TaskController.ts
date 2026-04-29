@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 
+import Note from "../models/Note";
 import Task from "../models/Task";
 import { handleError } from "../utils/handleError";
 
@@ -34,7 +35,14 @@ export class TaskController {
 
     static getTaskById = async (req: Request, res: Response) => {
         try {
-            res.json(req.task)
+            const task = await Task.findById(req.task._id).populate({
+                path: 'completedBy.user',
+                select: 'name _id'
+            }).populate({ 
+                path: 'notes', 
+                populate: { path: 'createdBy', select: '_id name email' }
+            })
+            res.json(task)
 
         } catch (error) {
             handleError(res, 'Error al obtener la tarea', error)
@@ -56,6 +64,8 @@ export class TaskController {
     static deleteTask = async (req: Request, res: Response) => {
         try {
             req.project.tasks = req.project.tasks.filter( t => t._id.toString() !== req.task._id.toString()) 
+            // Cascade: delete all notes associated with this task
+            await Note.deleteMany({ task: req.task._id })
             await Promise.allSettled([req.task.deleteOne(), req.project.save()])
             res.send('Tarea Eliminada Correctamente.')
 
@@ -68,6 +78,13 @@ export class TaskController {
         try {
             const { status } = req.body
             req.task.status = status
+            
+            const data = {
+                user: req.user._id,
+                status
+            }
+            req.task.completedBy.push(data)
+
             await req.task.save()
             res.send('Estado Actualizado Correctamente.')
 

@@ -224,4 +224,62 @@ export class AuthController {
     static user = async (req: Request, res: Response) => {
         return res.json(req.user)
     }
+
+    static updateProfile = async (req: Request, res: Response) => {
+        try {
+            const { name, email } = req.body
+
+            const userExist = await User.findOne({email})
+            if ( userExist && userExist._id.toString() !== req.user._id.toString() ) {
+                const err = new Error('Ese email le pertenece a otro usuario.')
+                return res.status(409).json({error: err.message})
+            }
+
+            req.user.name = name
+            req.user.email = email
+            await req.user.save()
+            res.send('Perfil Actualizado Correctamente.')
+
+        } catch (error) {
+            handleError(res, 'Error al actualizar el perfil', error)
+        }
+    }
+
+    static updatePassword = async (req: Request, res: Response) => {
+        try {
+            const { current_password, password } = req.body
+            const user = await User.findById(req.user._id)
+
+            const isPassCorrect = await checkPassword(current_password, user.password)
+            if ( !isPassCorrect ) {
+                const err = new Error('La contraseña actual es incorrecta.')
+                return res.status(401).json({error: err.message})
+            }
+
+            user.password = await hashPassword(password)
+            await user.save()
+            res.send('La Contraseña se Actualizó Correctamente.')
+
+        } catch (error) {
+            handleError(res, 'Error al cambiar el password', error)
+        }
+    }
+
+    static checkPassword = async (req: Request, res: Response) => {
+        try {
+            const { password } = req.body
+            const user = await User.findById(req.user._id)
+
+            const isPassCorrect = await checkPassword(password, user.password)
+            if ( !isPassCorrect ) {
+                const err = new Error('La contraseña es incorrecta.')
+                return res.status(409).json({error: err.message})
+            }
+
+            res.send('Contraseña Válida.')
+
+        } catch (error) {
+            handleError(res, 'Error al comprobar el password', error)
+        }
+    }
 }
