@@ -12,7 +12,7 @@ export class AuthEmail {
 
         try {
         const info = await transporter.sendMail({
-            from: "CoreTask <errold222@gmail.com>",
+            from: "CoreTask <noreply@acesorarte.com>",
             to: email,
             subject: "CoreTask | Confirma tu cuenta",
             text: `Hola ${name},\n\n¡Bienvenido a CoreTask!\n\nConfirma tu cuenta desde este enlace: ${confirmationUrl}\n\nTambién puedes ingresar este código de confirmación: ${token}\n\nEste código expira en 1 hora.\n\nSi no creaste esta cuenta, puedes ignorar este mensaje.`,
@@ -85,7 +85,7 @@ export class AuthEmail {
 
         try {
         const info = await transporter.sendMail({
-            from: "CoreTask <errold222@gmail.com>",
+            from: "CoreTask <noreply@acesorarte.com>",
             to: email,
             subject: "CoreTask | Restablece tu contraseña",
             text: `Hola ${name},\n\nRecibimos una solicitud para restablecer la contraseña de tu cuenta.\n\nIngresa este código para continuar: ${token}\n\nO accede desde este enlace: ${resetUrl}\n\nEste código expira en 10 minutos.\n\nSi no solicitaste esto, puedes ignorar este mensaje.`,
