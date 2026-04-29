@@ -11,7 +11,7 @@ export class AuthEmail {
         const confirmationUrl = `${process.env.FRONTEND_URL}/auth/confirm-account` || "#"
 
         await transporter.sendMail({
-            from: "CoreTask <cuentas@core-task.acesorarte.com>",
+            from: "CoreTask <errold222@gmail.com>",
             to: email,
             subject: "CoreTask | Confirma tu cuenta",
             text: `Hola ${name},\n\n¡Bienvenido a CoreTask!\n\nConfirma tu cuenta desde este enlace: ${confirmationUrl}\n\nTambién puedes ingresar este código de confirmación: ${token}\n\nEste código expira en 1 hora.\n\nSi no creaste esta cuenta, puedes ignorar este mensaje.`,
@@ -79,7 +79,7 @@ export class AuthEmail {
         const resetUrl = `${process.env.FRONTEND_URL}/auth/new-password` || "#"
 
         await transporter.sendMail({
-            from: "CoreTask <cuentas@core-task.acesorarte.com>",
+            from: "CoreTask <errold222@gmail.com>",
             to: email,
             subject: "CoreTask | Restablece tu contraseña",
             text: `Hola ${name},\n\nRecibimos una solicitud para restablecer la contraseña de tu cuenta.\n\nIngresa este código para continuar: ${token}\n\nO accede desde este enlace: ${resetUrl}\n\nEste código expira en 10 minutos.\n\nSi no solicitaste esto, puedes ignorar este mensaje.`,
