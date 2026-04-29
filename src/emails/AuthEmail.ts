@@ -10,7 +10,8 @@ export class AuthEmail {
     static sendConfirmationEmail = async ({ email, name, token }: IEmail) => {
         const confirmationUrl = `${process.env.FRONTEND_URL}/auth/confirm-account` || "#"
 
-        await transporter.sendMail({
+        try {
+        const info = await transporter.sendMail({
             from: "CoreTask <errold222@gmail.com>",
             to: email,
             subject: "CoreTask | Confirma tu cuenta",
@@ -73,12 +74,17 @@ export class AuthEmail {
                 </html>
             `,
         });
+        console.log('Email de confirmacion enviado:', info.messageId)
+        } catch (error) {
+            console.error('Error al enviar email de confirmacion:', error)
+        }
     };
 
     static sendPasswordResetToken = async ({ email, name, token }: IEmail) => {
         const resetUrl = `${process.env.FRONTEND_URL}/auth/new-password` || "#"
 
-        await transporter.sendMail({
+        try {
+        const info = await transporter.sendMail({
             from: "CoreTask <errold222@gmail.com>",
             to: email,
             subject: "CoreTask | Restablece tu contraseña",
@@ -141,5 +147,9 @@ export class AuthEmail {
                 </html>
             `,
         });
+        console.log('Email de reset enviado:', info.messageId)
+        } catch (error) {
+            console.error('Error al enviar email de reset:', error)
+        }
     }
 }
