@@ -43,7 +43,7 @@ export class TeamController {
             // Obtener datos del manager para el email
             const manager = await User.findById(req.project.manager).select('name')
 
-            TeamEmail.sendAddedToTeamEmail({
+            await TeamEmail.sendAddedToTeamEmail({
                 memberEmail: user.email,
                 memberName: user.name,
                 projectName: req.project.projectName,
@@ -110,7 +110,7 @@ export class TeamController {
             const manager = await User.findById(req.project.manager).select('name email')
 
             if (manager) {
-                TeamEmail.sendMemberLeftEmail({
+                await TeamEmail.sendMemberLeftEmail({
                     managerEmail: manager.email,
                     managerName: manager.name,
                     memberName: req.user.name,
