@@ -33,7 +33,7 @@ export class AuthController {
             token.user = user._id
 
             // Enviar el Email
-            await AuthEmail.sendConfirmationEmail({
+            AuthEmail.sendConfirmationEmail({
                 email: user.email,
                 name: user.name,
                 token: token.token
@@ -88,7 +88,7 @@ export class AuthController {
                 token.save()
 
                 // Enviar el Email
-                await AuthEmail.sendConfirmationEmail({
+                AuthEmail.sendConfirmationEmail({
                     email: user.email,
                     name: user.name,
                     token: token.token
@@ -136,7 +136,7 @@ export class AuthController {
             token.user = user._id
 
             // Enviar el Email
-            await AuthEmail.sendConfirmationEmail({
+            AuthEmail.sendConfirmationEmail({
                 email: user.email,
                 name: user.name,
                 token: token.token
@@ -169,7 +169,7 @@ export class AuthController {
             await token.save()
 
             // Enviar el Email
-            await AuthEmail.sendPasswordResetToken({
+            AuthEmail.sendPasswordResetToken({
                 email: user.email,
                 name: user.name,
                 token: token.token
