@@ -1,4 +1,4 @@
-import { transporter } from "../config/nodemailer";
+import { resend } from "../config/nodemailer";
 
 interface IEmail {
     email: string
@@ -11,11 +11,10 @@ export class AuthEmail {
         const confirmationUrl = `${process.env.FRONTEND_URL}/auth/confirm-account` || "#"
 
         try {
-        const info = await transporter.sendMail({
+        const { data, error } = await resend.emails.send({
             from: "CoreTask <no-replay@coretask.acesorarte.com>",
             to: email,
             subject: "CoreTask | Confirma tu cuenta",
-            text: `Hola ${name},\n\n¡Bienvenido a CoreTask!\n\nConfirma tu cuenta desde este enlace: ${confirmationUrl}\n\nTambién puedes ingresar este código de confirmación: ${token}\n\nEste código expira en 1 hora.\n\nSi no creaste esta cuenta, puedes ignorar este mensaje.`,
             html: `
                 <!doctype html>
                 <html lang="es">
@@ -74,7 +73,11 @@ export class AuthEmail {
                 </html>
             `,
         });
-        console.log('Email de confirmacion enviado:', info.messageId)
+        if (error) {
+            console.error('Error al enviar email de confirmacion:', error)
+        } else {
+            console.log('Email de confirmacion enviado:', data?.id)
+        }
         } catch (error) {
             console.error('Error al enviar email de confirmacion:', error)
         }
@@ -84,11 +87,10 @@ export class AuthEmail {
         const resetUrl = `${process.env.FRONTEND_URL}/auth/new-password` || "#"
 
         try {
-        const info = await transporter.sendMail({
+        const { data, error } = await resend.emails.send({
             from: "CoreTask <no-replay@coretask.acesorarte.com>",
             to: email,
             subject: "CoreTask | Restablece tu contraseña",
-            text: `Hola ${name},\n\nRecibimos una solicitud para restablecer la contraseña de tu cuenta.\n\nIngresa este código para continuar: ${token}\n\nO accede desde este enlace: ${resetUrl}\n\nEste código expira en 10 minutos.\n\nSi no solicitaste esto, puedes ignorar este mensaje.`,
             html: `
                 <!doctype html>
                 <html lang="es">
@@ -147,7 +149,11 @@ export class AuthEmail {
                 </html>
             `,
         });
-        console.log('Email de reset enviado:', info.messageId)
+        if (error) {
+            console.error('Error al enviar email de reset:', error)
+        } else {
+            console.log('Email de reset enviado:', data?.id)
+        }
         } catch (error) {
             console.error('Error al enviar email de reset:', error)
         }

@@ -1,16 +1,3 @@
-import dotenv from "dotenv";
-import nodemailer from "nodemailer";
-dotenv.config()
+import { Resend } from "resend";
 
-console.log('[SMTP] host:', process.env.SMTP_HOST, '| port:', process.env.SMTP_PORT, '| user:', process.env.SMTP_USER)
-
-export const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: false,
-    requireTLS: true,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    }
-});
+export const resend = new Resend(process.env.RESEND_API_KEY);

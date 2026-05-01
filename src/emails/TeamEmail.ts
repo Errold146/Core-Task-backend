@@ -1,4 +1,4 @@
-import { transporter } from "../config/nodemailer";
+import { resend } from "../config/nodemailer";
 
 interface IAddedToTeamEmail {
     memberEmail: string
@@ -19,11 +19,10 @@ export class TeamEmail {
     static sendAddedToTeamEmail = async ({ memberEmail, memberName, projectName, managerName }: IAddedToTeamEmail) => {
         const projectsUrl = `${process.env.FRONTEND_URL}/` || "#"
 
-        await transporter.sendMail({
+        const { error } = await resend.emails.send({
             from: "CoreTask <no-replay@coretask.acesorarte.com>",
             to: memberEmail,
             subject: `CoreTask | Te han añadido al proyecto "${projectName}"`,
-            text: `Hola ${memberName},\n\n${managerName} te ha añadido como miembro del proyecto "${projectName}" en CoreTask.\n\nYa puedes acceder al proyecto desde tu panel: ${projectsUrl}\n\nSi no esperabas esta invitación, puedes ignorar este mensaje.`,
             html: `
                 <!doctype html>
                 <html lang="es">
@@ -77,16 +76,16 @@ export class TeamEmail {
                 </html>
             `,
         });
+        if (error) console.error('Error al añadir miembro (email):', error)
     };
 
     static sendMemberLeftEmail = async ({ managerEmail, managerName, memberName, projectName }: IMemberLeftEmail) => {
         const projectsUrl = `${process.env.FRONTEND_URL}/` || "#"
 
-        await transporter.sendMail({
+        const { error } = await resend.emails.send({
             from: "CoreTask <no-replay@coretask.acesorarte.com>",
             to: managerEmail,
             subject: `CoreTask | ${memberName} ha abandonado el proyecto "${projectName}"`,
-            text: `Hola ${managerName},\n\nTe informamos que ${memberName} ha abandonado el proyecto "${projectName}".\n\nPuedes gestionar el equipo del proyecto desde tu panel: ${projectsUrl}\n\nEste mensaje es automático, no es necesario responder.`,
             html: `
                 <!doctype html>
                 <html lang="es">
@@ -140,5 +139,6 @@ export class TeamEmail {
                 </html>
             `,
         });
+        if (error) console.error('Error al notificar manager (email):', error)
     };
 }
